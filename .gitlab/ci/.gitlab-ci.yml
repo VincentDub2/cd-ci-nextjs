@@ -2,7 +2,8 @@ stages:
   - build
   - deploy
   -
-build-image:
+
+frontend-build:
   stage: build
   image: docker:latest
   services:
@@ -14,22 +15,6 @@ build-image:
   script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - docker build --no-cache -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -f cd-ci/docker/development/Dockerfile .
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-
-frontend-build:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    # Construire l'image Docker
-    - docker build --no-cache -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -f cd-ci/docker/development/Dockerfile .
-    # Se connecter au registre Docker GitLab
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    # Pousser l'image Docker
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
 
 frontend-deploy:
