@@ -4,14 +4,30 @@ stages:
 
 frontend-build:
   stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    # Construire l'image Docker
+    - docker build --no-cache -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -f cd-ci/docker/development/Dockerfile .
+    # Se connecter au registre Docker GitLab
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    # Pousser l'image Docker
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+frontend-deploy:
+  stage: deploy
   only:
     - staging
-  variables:
-    DOCKER_DRIVER: overlay
   script:
-    # Construire et tagger l'image Docker
-    - docker build --no-cache -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -f cd-ci/docker/development/Dockerfile .
-    # Se connecter au registre GitLab
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Pousser l'image Docker dans le registre
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+    # Configurer SSH pour se connecter au serveur distant
+    - mkdir -p ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+    - eval $(ssh-agent -s) && echo "$SSH_KEY_B64" | base64 -d | ssh-add -
+    # Déployer l'image sur le serveur distant
+    - ssh root@serveur-distant.polytech.umontpellier.fr "docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
+    - ssh root@serveur-distant.polytech.umontpellier.fr "cd /chemin/vers/projet && docker-compose up -d"
+    - ssh root@serveur-distant.polytech.umontpellier.fr "docker image prune -f"
