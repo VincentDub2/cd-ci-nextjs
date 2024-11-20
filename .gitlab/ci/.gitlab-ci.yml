@@ -24,16 +24,22 @@ frontend-deploy:
   stage: deploy
   only:
     - staging
-  image: debian:latest
+  #image: debian:latest
   script:
     # Installer ssh
-    - apt-get update && apt-get install -y openssh-client
+    #- apt-get update && apt-get install -y openssh-client
     # Configurer SSH pour accéder à la VM
     - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > ~/.ssh/config
+    - eval $(ssh-agent) && echo "$SSH_PRIVATE_KEY" | base64 -d | ssh-add -
+
+    #- echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    #- chmod 600 ~/.ssh/id_rsa
+    #- echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+    #- echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile=/dev/null" > ~/.ssh/config
     # Se connecter à la VM et exécuter les commandes Docker
+    -
+    - ssh -v $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "echo 'Connection successful'"
     - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD"
     - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker pull $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG"
     - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker stop my-app || true && docker rm my-app || true"
