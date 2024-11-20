@@ -1,7 +1,8 @@
 stages:
   - build
+  - deploy
 
-frontend-build:
+build-image:
   stage: build
   only:
     - staging
@@ -12,25 +13,25 @@ frontend-build:
     DOCKER_DRIVER: overlay
     DOCKER_TLS_CERTDIR: ""
   script:
-    # Se connecter à Docker Hub
+    # Connexion à Docker Hub
     - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-    # Construire l'image Docker
-    - docker build --no-cache -t $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG -f docker/development/Dockerfile .
-    # Pousser l'image Docker sur Docker Hub
+    # Construire et tagger l'image
+    - docker build -t $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG -f Dockerfile .
+    # Pousser l'image sur Docker Hub
     - docker push $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG
 
-  deploy-to-vm:
-    stage: deploy
-    only:
-      - staging
-    script:
-      # Configurer SSH
-      - mkdir -p ~/.ssh
-      - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-      - chmod 600 ~/.ssh/id_rsa
-      - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-      # Se connecter à la VM et déployer
-      - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD"
-      - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker pull $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG"
-      - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker stop my-app || true && docker rm my-app || true"
-      - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker run -d --name my-app -p 80:3000 $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG"
+deploy-to-vm:
+  stage: deploy
+  only:
+    - staging
+  script:
+    # Configurer SSH
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+    # Se connecter à la VM et déployer
+    - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD"
+    - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker pull $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG"
+    - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker stop my-app || true && docker rm my-app || true"
+    - ssh $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "docker run -d --name my-app -p 80:3000 $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG"
