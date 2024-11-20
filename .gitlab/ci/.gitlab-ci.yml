@@ -1,32 +1,20 @@
 stages:
   - build
-  - deploy
-  -
 
 frontend-build:
   stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--experimental", "--mtu=1400"]
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - docker build --no-cache -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -f cd-ci/docker/development/Dockerfile .
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-
-frontend-deploy:
-  stage: deploy
   only:
     - staging
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay
+    DOCKER_TLS_CERTDIR: ""
   script:
-    # Configurer SSH pour se connecter au serveur distant
-    - mkdir -p ~/.ssh
-    - echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-    - eval $(ssh-agent -s) && echo "$SSH_KEY_B64" | base64 -d | ssh-add -
-    # Déployer l'image sur le serveur distant
-    - ssh root@serveur-distant.polytech.umontpellier.fr "docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
-    - ssh root@serveur-distant.polytech.umontpellier.fr "cd /chemin/vers/projet && docker-compose up -d"
-    - ssh root@serveur-distant.polytech.umontpellier.fr "docker image prune -f"
+    # Se connecter à Docker Hub
+    - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+    # Construire l'image Docker
+    - docker build --no-cache -t $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG -f docker/development/Dockerfile .
+    # Pousser l'image Docker sur Docker Hub
+    - docker push $DOCKERHUB_USERNAME/my-app:$CI_COMMIT_REF_SLUG
